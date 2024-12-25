@@ -1,1 +1,0 @@
-Makes NVGs and Thermals Clearer and has better FOV.
