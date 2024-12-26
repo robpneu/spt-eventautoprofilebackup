@@ -67,10 +67,10 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
         if (this.modConfig?.AutoBackup?.OnRaidStart) 
         {
             staticRouterModService.registerStaticRouter(
-                `${this.modName}-/client/raid/configuration`,
+                `${this.modName}-/client/match/local/start`,
                 [
                     {
-                        url: "/client/raid/configuration",
+                        url: "/client/match/local/start",
                         action: async (url, info, sessionId, output) : Promise<string> =>
                         {
                             this.onEvent("onRaidStart", sessionId);
@@ -85,10 +85,10 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
         if (this.modConfig?.AutoBackup?.OnRaidEnd) 
         {
             staticRouterModService.registerStaticRouter(
-                `${this.modName}-/raid/profile/save`,
+                `${this.modName}-/client/match/local/end`,
                 [
                     {
-                        url: "/raid/profile/save",
+                        url: "/client/match/local/end",
                         action: async (url, info, sessionId, output) : Promise<string> =>
                         {
                             this.onEvent("onRaidEnd", sessionId);

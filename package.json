@@ -1,10 +1,10 @@
 {
     "name": "AutoProfileBackup",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "main": "src/mod.js",
     "license": "CC BY-NC-SA 4.0",
     "author": "Lua",
-    "sptVersion": "3.9.*",
+    "sptVersion": "3.10.*",
 	"loadBefore": [],
 	"loadAfter": [],
 	"incompatibilities": [],
