@@ -161,8 +161,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
             return;
         }
 
-        const dirArray = __dirname.split("\\");
-        this.profilePath = `${dirArray[dirArray.length - 4]}/profiles`; // Pon, Pin, Fon, Fin
+        this.profilePath = `${path.join(path.dirname(__filename), "..", "..", "..", "..", "profiles")}`;
         this.vfs = container.resolve<VFS>("VFS");
         this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
     }
