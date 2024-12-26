@@ -161,7 +161,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
             return;
         }
 
-        this.profilePath = `${path.join(path.dirname(__filename), "..", "..", "..", "..", "profiles")}`;
+        this.profilePath = `${path.join(__dirname, "..", "..", "..", "profiles")}`;
         this.vfs = container.resolve<VFS>("VFS");
         this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
     }
@@ -217,9 +217,9 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
             }
         }
 
-        const backupFileName = `${event}-${new Date()
+        const backupFileName = `${new Date()
             .toISOString()
-            .replace(/[:.]/g, "")}.json`;
+            .replace(/[:.]/g, "")}-${event}.json`;
         this.vfs.copyFile(
             `${this.profilePath}/${sessionID}.json`,
             `${sessionPath}${backupFileName}`
