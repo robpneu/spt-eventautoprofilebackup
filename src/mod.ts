@@ -1,18 +1,18 @@
 import fs from "node:fs";
-import type { DependencyContainer } from "tsyringe";
-import type { IPreSptLoadMod } from "@spt/models/external/IPreSptLoadMod";
+import { ConfigTypes } from "@spt/models/enums/ConfigTypes";
 import type { IPostDBLoadMod } from "@spt/models/external/IPostDBLoadMod";
 import type { IPostSptLoadMod } from "@spt/models/external/IPostSptLoadMod";
-import { JsonUtil } from "@spt/utils/JsonUtil";
-import { ConfigServer } from "@spt/servers/ConfigServer";
-import { ConfigTypes } from "@spt/models/enums/ConfigTypes";
+import type { IPreSptLoadMod } from "@spt/models/external/IPreSptLoadMod";
 import { ICoreConfig } from "@spt/models/spt/config/ICoreConfig";
-import type { SaveServer } from "@spt/servers/SaveServer";
-import type { ILogger } from "@spt/models/spt/utils/ILogger";
 import { LogBackgroundColor } from "@spt/models/spt/logging/LogBackgroundColor";
 import { LogTextColor } from "@spt/models/spt/logging/LogTextColor";
+import type { ILogger } from "@spt/models/spt/utils/ILogger";
+import type { ConfigServer } from "@spt/servers/ConfigServer";
+import type { SaveServer } from "@spt/servers/SaveServer";
 import type { StaticRouterModService } from "@spt/services/mod/staticRouter/StaticRouterModService";
+import type { JsonUtil } from "@spt/utils/JsonUtil";
 import type { VFS } from "@spt/utils/VFS";
+import type { DependencyContainer } from "tsyringe";
 import type { ModConfig } from "./interface";
 
 import { jsonc } from "jsonc";
@@ -22,8 +22,7 @@ import type { Watermark } from "@spt/utils/Watermark";
 
 import pkg from "../package.json";
 
-export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod 
-{
+export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     readonly modName = `${pkg.author}-${pkg.name}`;
     private modConfig: ModConfig;
     private logger: ILogger;
@@ -33,10 +32,9 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
     protected jsonUtil: JsonUtil;
     protected saveServer: SaveServer;
 
-    public preSptLoad(container: DependencyContainer) : void 
-    {
+    public preSptLoad(container: DependencyContainer): void {
         const staticRouterModService: StaticRouterModService =
-      container.resolve<StaticRouterModService>("StaticRouterModService");
+            container.resolve<StaticRouterModService>("StaticRouterModService");
 
         // get logger
         this.logger = container.resolve<ILogger>("WinstonLogger");
@@ -47,88 +45,77 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
         // Read in the json c config content and parse it into json
         this.modConfig = jsonc.parse(this.vfs.readFile(path.resolve(__dirname, "../config/config.jsonc")));
 
-        if (!this.modConfig.Enabled) 
-        {
+        if (!this.modConfig.Enabled) {
             return;
         }
 
-        if (this.modConfig?.AutoBackup?.OnGameStart) 
-        {
+        if (this.modConfig?.AutoBackup?.OnGameStart) {
             staticRouterModService.registerStaticRouter(
                 `${this.modName}-/client/game/start`,
                 [
                     {
                         url: "/client/game/start",
-                        action: async (url, info, sessionId, output) : Promise<string> =>
-                        {
+                        action: async (url, info, sessionId, output): Promise<string> => {
                             this.onEvent("onGameStart", sessionId);
                             return output;
-                        }
-                    }
+                        },
+                    },
                 ],
-                "spt"
+                "spt",
             );
         }
 
-        if (this.modConfig?.AutoBackup?.OnRaidStart) 
-        {
+        if (this.modConfig?.AutoBackup?.OnRaidStart) {
             staticRouterModService.registerStaticRouter(
                 `${this.modName}-/client/match/local/start`,
                 [
                     {
                         url: "/client/match/local/start",
-                        action: async (url, info, sessionId, output) : Promise<string> =>
-                        {
+                        action: async (url, info, sessionId, output): Promise<string> => {
                             this.onEvent("onRaidStart", sessionId);
                             return output;
-                        }
-                    }
+                        },
+                    },
                 ],
-                "spt"
+                "spt",
             );
         }
 
-        if (this.modConfig?.AutoBackup?.OnRaidEnd) 
-        {
+        if (this.modConfig?.AutoBackup?.OnRaidEnd) {
             staticRouterModService.registerStaticRouter(
                 `${this.modName}-/client/match/local/end`,
                 [
                     {
                         url: "/client/match/local/end",
-                        action: async (url, info, sessionId, output) : Promise<string> =>
-                        {
+                        action: async (url, info, sessionId, output): Promise<string> => {
                             this.onEvent("onRaidEnd", sessionId);
                             return output;
-                        }
-                    }
+                        },
+                    },
                 ],
-                "spt"
+                "spt",
             );
         }
 
-        if (this.modConfig?.AutoBackup?.OnLogout) 
-        {
+        if (this.modConfig?.AutoBackup?.OnLogout) {
             staticRouterModService.registerStaticRouter(
                 `${this.modName}-/client/game/logout`,
                 [
                     {
                         url: "/client/game/logout",
-                        action: async (url, info, sessionId, output) : Promise<string> =>
-                        {
+                        action: async (url, info, sessionId, output): Promise<string> => {
                             this.onEvent("onLogout", sessionId);
                             return output;
-                        }
-                    }
+                        },
+                    },
                 ],
-                "spt"
+                "spt",
             );
         }
     }
 
-    public postSptLoad(container: DependencyContainer): void 
-    {
-        if (!this.modConfig.Enabled) 
-        {
+    public postSptLoad(container: DependencyContainer): void {
+        if (!this.modConfig.Enabled) {
             return;
         }
 
@@ -136,37 +123,26 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
         this.jsonUtil = container.resolve<JsonUtil>("JsonUtil");
         this.saveServer = container.resolve<SaveServer>("SaveServer");
 
-        for (const profileKey in this.saveServer.getProfiles()) 
-        {
+        for (const profileKey in this.saveServer.getProfiles()) {
             const sessionID = this.saveServer.getProfile(profileKey).info.id;
-            if (sessionID !== profileKey) 
-            {
+            if (sessionID !== profileKey) {
                 this.saveServer.deleteProfileById(profileKey);
                 fs.rename(
                     `${this.saveServer.profileFilepath}/${profileKey}.json`,
                     `${this.saveServer.profileFilepath}/${sessionID}.json`,
-                    () => 
-                    {
+                    () => {
                         this.saveServer.loadProfile(sessionID);
-                    }
+                    },
                 );
-                this.logger.info(
-                    `${this.modName}: Profile "${profileKey}.json" => "${sessionID}.json" name fixed`
-                );
+                this.logger.info(`${this.modName}: Profile "${profileKey}.json" => "${sessionID}.json" name fixed`);
             }
         }
     }
 
-    public postDBLoad(container: DependencyContainer): void 
-    {
+    public postDBLoad(container: DependencyContainer): void {
         this.logger = container.resolve<ILogger>("WinstonLogger");
-        this.logger.info(
-            `Loading: ${this.modName} ${pkg.version}${
-                this.modConfig.Enabled ? "" : " [Disabled]"
-            }`
-        );
-        if (!this.modConfig.Enabled) 
-        {
+        this.logger.info(`Loading: ${this.modName} ${pkg.version}${this.modConfig.Enabled ? "" : " [Disabled]"}`);
+        if (!this.modConfig.Enabled) {
             return;
         }
 
@@ -174,29 +150,22 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
         this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
     }
 
-    public onEvent(event: string, sessionID: string) : void
-    {
+    public onEvent(event: string, sessionID: string): void {
         const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${this.sptVersion}/${sessionID}/`;
 
-        if (!this.vfs.exists(sessionPath)) 
-        {
+        if (!this.vfs.exists(sessionPath)) {
             this.logger.success(`${this.modName}: "${sessionPath}" has been created`);
             this.vfs.createDir(sessionPath);
         }
 
-        if (this.modConfig?.MaximumBackupPerProfile >= 0) 
-        {
+        if (this.modConfig?.MaximumBackupPerProfile >= 0) {
             const profileList = this.vfs
                 .getFilesOfType(sessionPath, "json")
                 .sort((a, b) => fs.statSync(a).ctimeMs - fs.statSync(b).ctimeMs);
             let delCount = 0;
             let fileName = "";
 
-            while (
-                profileList.length &&
-        profileList.length >= this.modConfig.MaximumBackupPerProfile
-            ) 
-            {
+            while (profileList.length && profileList.length >= this.modConfig.MaximumBackupPerProfile) {
                 const lastProfile = profileList[0];
                 fileName = lastProfile.split("\\").pop();
                 this.vfs.removeFile(lastProfile);
@@ -204,22 +173,18 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
                 delCount++;
             }
 
-            if (this.modConfig?.MaximumBackupDeleteLog) 
-            {
-                if (delCount === 1) 
-                {
+            if (this.modConfig?.MaximumBackupDeleteLog) {
+                if (delCount === 1) {
                     this.logger.log(
                         `${this.modName} @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Backup file "${fileName}" deleted`,
                         LogTextColor.RED,
-                        LogBackgroundColor.DEFAULT
+                        LogBackgroundColor.DEFAULT,
                     );
-                }
-                else if (delCount > 1) 
-                {
+                } else if (delCount > 1) {
                     this.logger.log(
                         `${this.modName} @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Total "${delCount}" backup files deleted`,
                         LogTextColor.RED,
-                        LogBackgroundColor.DEFAULT
+                        LogBackgroundColor.DEFAULT,
                     );
                 }
             }
@@ -229,17 +194,16 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
 
         const jsonProfile = this.jsonUtil.serialize(
             this.saveServer.getProfile(sessionID),
-            !this.configServer.getConfig<ICoreConfig>(ConfigTypes.CORE).features.compressProfile
+            !this.configServer.getConfig<ICoreConfig>(ConfigTypes.CORE).features.compressProfile,
         );
 
         this.vfs.writeFile(`${sessionPath}${backupFileName}`, jsonProfile);
 
-        if (this.modConfig?.BackupSavedLog) 
-        {
+        if (this.modConfig?.BackupSavedLog) {
             this.logger.log(
                 `${this.modName} @ ${sessionID}: New backup file "${backupFileName}" saved`,
                 LogTextColor.WHITE,
-                LogBackgroundColor.MAGENTA
+                LogBackgroundColor.MAGENTA,
             );
         }
     }

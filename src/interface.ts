@@ -1,5 +1,4 @@
-export interface ModConfig 
-{
+export interface ModConfig {
     Enabled: boolean;
     BackupSavedLog: boolean;
     MaximumBackupDeleteLog: boolean;
@@ -7,8 +6,7 @@ export interface ModConfig
     AutoBackup: AutoBackup;
 }
 
-export interface AutoBackup 
-{
+export interface AutoBackup {
     OnGameStart: boolean;
     OnRaidStart: boolean;
     OnRaidEnd: boolean;
