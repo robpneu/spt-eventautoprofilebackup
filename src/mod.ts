@@ -3,6 +3,10 @@ import type { DependencyContainer } from "tsyringe";
 import type { IPreSptLoadMod } from "@spt/models/external/IPreSptLoadMod";
 import type { IPostDBLoadMod } from "@spt/models/external/IPostDBLoadMod";
 import type { IPostSptLoadMod } from "@spt/models/external/IPostSptLoadMod";
+import { JsonUtil } from "@spt/utils/JsonUtil";
+import { ConfigServer } from "@spt/servers/ConfigServer";
+import { ConfigTypes } from "@spt/models/enums/ConfigTypes";
+import { ICoreConfig } from "@spt/models/spt/config/ICoreConfig";
 import type { SaveServer } from "@spt/servers/SaveServer";
 import type { ILogger } from "@spt/models/spt/utils/ILogger";
 import { LogBackgroundColor } from "@spt/models/spt/logging/LogBackgroundColor";
@@ -24,8 +28,10 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
     private modConfig: ModConfig;
     private logger: ILogger;
     private vfs: VFS;
-    protected profilePath: string;
     protected sptVersion: string;
+    protected configServer: ConfigServer;
+    protected jsonUtil: JsonUtil;
+    protected saveServer: SaveServer;
 
     public preSptLoad(container: DependencyContainer) : void 
     {
@@ -126,19 +132,22 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
             return;
         }
 
-        const saveServer = container.resolve<SaveServer>("SaveServer");
-        for (const profileKey in saveServer.getProfiles()) 
+        this.configServer = container.resolve<ConfigServer>("ConfigServer");
+        this.jsonUtil = container.resolve<JsonUtil>("JsonUtil");
+        this.saveServer = container.resolve<SaveServer>("SaveServer");
+
+        for (const profileKey in this.saveServer.getProfiles()) 
         {
-            const sessionID = saveServer.getProfile(profileKey).info.id;
+            const sessionID = this.saveServer.getProfile(profileKey).info.id;
             if (sessionID !== profileKey) 
             {
-                saveServer.deleteProfileById(profileKey);
+                this.saveServer.deleteProfileById(profileKey);
                 fs.rename(
-                    `${this.profilePath}/${profileKey}.json`,
-                    `${this.profilePath}/${sessionID}.json`,
+                    `${this.saveServer.profileFilepath}/${profileKey}.json`,
+                    `${this.saveServer.profileFilepath}/${sessionID}.json`,
                     () => 
                     {
-                        saveServer.loadProfile(sessionID);
+                        this.saveServer.loadProfile(sessionID);
                     }
                 );
                 this.logger.info(
@@ -161,14 +170,13 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
             return;
         }
 
-        this.profilePath = `${path.join(__dirname, "..", "..", "..", "profiles")}`;
         this.vfs = container.resolve<VFS>("VFS");
         this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
     }
 
     public onEvent(event: string, sessionID: string) : void
     {
-        const sessionPath = `${this.profilePath}/AutoBackup/${this.sptVersion}/${sessionID}/`;
+        const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${this.sptVersion}/${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) 
         {
@@ -217,13 +225,15 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod
             }
         }
 
-        const backupFileName = `${new Date()
-            .toISOString()
-            .replace(/[:.]/g, "")}-${event}.json`;
-        this.vfs.copyFile(
-            `${this.profilePath}/${sessionID}.json`,
-            `${sessionPath}${backupFileName}`
+        const backupFileName = `${new Date().toISOString().replace(/[:.]/g, "")}-${event}.json`;
+
+        const jsonProfile = this.jsonUtil.serialize(
+            this.saveServer.getProfile(sessionID),
+            !this.configServer.getConfig<ICoreConfig>(ConfigTypes.CORE).features.compressProfile
         );
+
+        this.vfs.writeFile(`${sessionPath}${backupFileName}`, jsonProfile);
+
         if (this.modConfig?.BackupSavedLog) 
         {
             this.logger.log(
