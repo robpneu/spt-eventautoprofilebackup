@@ -39,15 +39,18 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         // get logger
         this.logger = container.resolve<ILogger>("WinstonLogger");
 
-        // Get VFS to read in configs
+        // Get VFS to interact with the file system to read in configs and manage profile backup directories and files
         this.vfs = container.resolve<VFS>("VFS");
 
         // Read in the json c config content and parse it into json
         this.modConfig = jsonc.parse(this.vfs.readFile(path.resolve(__dirname, "../config/config.jsonc")));
 
         if (!this.modConfig.Enabled) {
+            this.logger.warning(`[${this.modName}] Mod is disabled. Backups will not be made.`);
             return;
         }
+
+        this.logger.info(`[${this.modName}] Mod is enabled. Loading...`);
 
         // Iterate over the AutoBackupEvents from the config. If the event is enabled, get the route for each event and register the listener
         for (const autoBackupEvent of this.modConfig.AutoBackupEvents) {
@@ -86,6 +89,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.jsonUtil = container.resolve<JsonUtil>("JsonUtil");
         this.saveServer = container.resolve<SaveServer>("SaveServer");
 
+        // Check all off the loaded profiles for any mismatches, which indicates an attempted to restore from backup
         for (const profileKey in this.saveServer.getProfiles()) {
             const sessionID = this.saveServer.getProfile(profileKey).info.id;
             if (sessionID !== profileKey) {
@@ -97,7 +101,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
                         this.saveServer.loadProfile(sessionID);
                     },
                 );
-                this.logger.info(`${this.modName}: Profile "${profileKey}.json" => "${sessionID}.json" name fixed`);
+                this.logger.info(`[${this.modName}] Profile "${profileKey}.json" => "${sessionID}.json" name fixed`);
             }
         }
     }
@@ -117,7 +121,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${this.sptVersion}/${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) {
-            this.logger.success(`${this.modName}: "${sessionPath}" has been created`);
+            this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
             this.vfs.createDir(sessionPath);
         }
 
@@ -138,16 +142,12 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
 
             if (this.modConfig?.MaximumBackupDeleteLog) {
                 if (delCount === 1) {
-                    this.logger.log(
-                        `${this.modName} @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Backup file "${fileName}" deleted`,
-                        LogTextColor.RED,
-                        LogBackgroundColor.DEFAULT,
+                    this.logger.warning(
+                        `[${this.modName}] {sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Backup file "${fileName}" deleted`,
                     );
                 } else if (delCount > 1) {
-                    this.logger.log(
-                        `${this.modName} @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Total "${delCount}" backup files deleted`,
-                        LogTextColor.RED,
-                        LogBackgroundColor.DEFAULT,
+                    this.logger.warning(
+                        `[${this.modName}] @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Total "${delCount}" backup files deleted`,
                     );
                 }
             }
@@ -163,11 +163,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.vfs.writeFile(`${sessionPath}${backupFileName}`, jsonProfile);
 
         if (this.modConfig?.BackupSavedLog) {
-            this.logger.log(
-                `${this.modName} @ ${sessionID}: New backup file "${backupFileName}" saved`,
-                LogTextColor.WHITE,
-                LogBackgroundColor.MAGENTA,
-            );
+            this.logger.success(`[${this.modName}] {sessionID}: New backup file "${backupFileName}" saved`);
         }
     }
 }
