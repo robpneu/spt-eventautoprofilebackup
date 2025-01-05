@@ -85,6 +85,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             return;
         }
 
+        this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
         this.configServer = container.resolve<ConfigServer>("ConfigServer");
         this.jsonUtil = container.resolve<JsonUtil>("JsonUtil");
         this.saveServer = container.resolve<SaveServer>("SaveServer");
@@ -106,19 +107,9 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         }
     }
 
-    public postDBLoad(container: DependencyContainer): void {
-        this.logger = container.resolve<ILogger>("WinstonLogger");
-        this.logger.info(`Loading: ${this.modName} ${pkg.version}${this.modConfig.Enabled ? "" : " [Disabled]"}`);
-        if (!this.modConfig.Enabled) {
-            return;
-        }
-
-        this.vfs = container.resolve<VFS>("VFS");
-        this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
-    }
-
     public onEvent(event: string, sessionID: string): void {
-        const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${this.sptVersion}/${sessionID}/`;
+        const sessionUsername = this.saveServer.getProfile(sessionID).info.username;
+        const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${this.sptVersion}/${sessionUsername}-${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) {
             this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
@@ -143,7 +134,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             if (this.modConfig?.MaximumBackupDeleteLog) {
                 if (delCount === 1) {
                     this.logger.warning(
-                        `[${this.modName}] {sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Backup file "${fileName}" deleted`,
+                        `[${this.modName}] ${sessionUsername}-${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Backup file "${fileName}" deleted`,
                     );
                 } else if (delCount > 1) {
                     this.logger.warning(
@@ -163,7 +154,9 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.vfs.writeFile(`${sessionPath}${backupFileName}`, jsonProfile);
 
         if (this.modConfig?.BackupSavedLog) {
-            this.logger.success(`[${this.modName}] {sessionID}: New backup file "${backupFileName}" saved`);
+            this.logger.success(
+                `[${this.modName}] ${sessionUsername}-${sessionID}: New backup file "${backupFileName}" saved`,
+            );
         }
     }
 }
