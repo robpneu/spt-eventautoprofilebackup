@@ -1,16 +1,19 @@
 {
-    //Set to false if you do not want the backup profile to run
+    // Set to false if you do not want the backup profile to run at all.
     "Enabled": true,
 
+    // Write logs when a backup is saved
     "BackupSavedLog": true,
+
+    // Write logs when backups are deleted and the maximum number of backups per profile.
     "MaximumBackupDeleteLog": true,
     "MaximumBackupPerProfile": 10,
 
-    //this is where it sets the backup to run.  Self explanatory.
-    "AutoBackup": {
-        "OnGameStart": true,
-        "OnRaidStart": true,
-        "OnRaidEnd": true,
-        "OnLogout": true
-    }
+    // Which events should trigger a backup.
+    "AutoBackupEvents": [
+        { "Enabled": true, "Name": "OnGameStart", "Route": "/client/game/start" },
+        { "Enabled": true, "Name": "OnRaidStart", "Route": "/client/match/local/start" },
+        { "Enabled": true, "Name": "OnRaidEnd", "Route": "/client/match/local/end" },
+        { "Enabled": true, "Name": "OnLogout", "Route": "/client/game/logout" }
+    ]
 }

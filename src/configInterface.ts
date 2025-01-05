@@ -3,12 +3,11 @@ export interface ModConfig {
     BackupSavedLog: boolean;
     MaximumBackupDeleteLog: boolean;
     MaximumBackupPerProfile: number;
-    AutoBackup: AutoBackup;
+    AutoBackupEvents: AutoBackupEvent[];
 }
 
-export interface AutoBackup {
-    OnGameStart: boolean;
-    OnRaidStart: boolean;
-    OnRaidEnd: boolean;
-    OnLogout: boolean;
+export interface AutoBackupEvent {
+    Enabled: boolean;
+    Name: string;
+    Route: string;
 }

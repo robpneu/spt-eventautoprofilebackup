@@ -13,7 +13,7 @@ import type { StaticRouterModService } from "@spt/services/mod/staticRouter/Stat
 import type { JsonUtil } from "@spt/utils/JsonUtil";
 import type { VFS } from "@spt/utils/VFS";
 import type { DependencyContainer } from "tsyringe";
-import type { ModConfig } from "./interface";
+import type { AutoBackupEvent, ModConfig } from "./configInterface";
 
 import { jsonc } from "jsonc";
 
@@ -23,7 +23,7 @@ import type { Watermark } from "@spt/utils/Watermark";
 import pkg from "../package.json";
 
 export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
-    readonly modName = `${pkg.author}-${pkg.name}`;
+    readonly modName = `${pkg.name}`;
     private modConfig: ModConfig;
     private logger: ILogger;
     private vfs: VFS;
@@ -49,69 +49,32 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             return;
         }
 
-        if (this.modConfig?.AutoBackup?.OnGameStart) {
-            staticRouterModService.registerStaticRouter(
-                `${this.modName}-/client/game/start`,
-                [
-                    {
-                        url: "/client/game/start",
-                        action: async (url, info, sessionId, output): Promise<string> => {
-                            this.onEvent("onGameStart", sessionId);
-                            return output;
+        // Iterate over the AutoBackupEvents from the config. If the event is enabled, get the route for each event and register the listener
+        for (const autoBackupEvent of this.modConfig.AutoBackupEvents) {
+            const event = autoBackupEvent.Name;
+            const route = autoBackupEvent.Route;
+
+            if (autoBackupEvent.Enabled) {
+                staticRouterModService.registerStaticRouter(
+                    `${this.modName}-${route}`,
+                    [
+                        {
+                            url: route,
+                            action: async (url, info, sessionId, output): Promise<string> => {
+                                this.onEvent(event, sessionId);
+                                return output;
+                            },
                         },
-                    },
-                ],
-                "spt",
-            );
+                    ],
+                    "spt",
+                );
+                this.logger.success(`[${this.modName}] Registered ${event} event with route ${route}`);
+            } else {
+                this.logger.warning(`[${this.modName}] Found ${event} event with route ${route} but it is disabled`);
+            }
         }
 
-        if (this.modConfig?.AutoBackup?.OnRaidStart) {
-            staticRouterModService.registerStaticRouter(
-                `${this.modName}-/client/match/local/start`,
-                [
-                    {
-                        url: "/client/match/local/start",
-                        action: async (url, info, sessionId, output): Promise<string> => {
-                            this.onEvent("onRaidStart", sessionId);
-                            return output;
-                        },
-                    },
-                ],
-                "spt",
-            );
-        }
-
-        if (this.modConfig?.AutoBackup?.OnRaidEnd) {
-            staticRouterModService.registerStaticRouter(
-                `${this.modName}-/client/match/local/end`,
-                [
-                    {
-                        url: "/client/match/local/end",
-                        action: async (url, info, sessionId, output): Promise<string> => {
-                            this.onEvent("onRaidEnd", sessionId);
-                            return output;
-                        },
-                    },
-                ],
-                "spt",
-            );
-        }
-
-        if (this.modConfig?.AutoBackup?.OnLogout) {
-            staticRouterModService.registerStaticRouter(
-                `${this.modName}-/client/game/logout`,
-                [
-                    {
-                        url: "/client/game/logout",
-                        action: async (url, info, sessionId, output): Promise<string> => {
-                            this.onEvent("onLogout", sessionId);
-                            return output;
-                        },
-                    },
-                ],
-                "spt",
-            );
-        }
+        this.logger.success(`[${this.modName}] Finished registering events`);
     }
 
     public postSptLoad(container: DependencyContainer): void {
