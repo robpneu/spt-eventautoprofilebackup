@@ -12,12 +12,11 @@ import type { StaticRouterModService } from "@spt/services/mod/staticRouter/Stat
 import type { JsonUtil } from "@spt/utils/JsonUtil";
 import type { VFS } from "@spt/utils/VFS";
 import type { DependencyContainer } from "tsyringe";
-import type { AutoBackupEvent, ModConfig } from "./configInterface";
+import type { ModConfig } from "./configInterface";
 
 import { jsonc } from "jsonc";
 
 import path from "node:path";
-import type { Watermark } from "@spt/utils/Watermark";
 
 import pkg from "../package.json";
 
@@ -26,7 +25,6 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     private modConfig: ModConfig;
     private logger: ILogger;
     private vfs: VFS;
-    protected sptVersion: string;
     protected configServer: ConfigServer;
     protected jsonUtil: JsonUtil;
     protected saveServer: SaveServer;
@@ -85,7 +83,6 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             return;
         }
 
-        this.sptVersion = container.resolve<Watermark>("Watermark").getVersionTag();
         this.configServer = container.resolve<ConfigServer>("ConfigServer");
         this.jsonUtil = container.resolve<JsonUtil>("JsonUtil");
         this.saveServer = container.resolve<SaveServer>("SaveServer");
@@ -110,7 +107,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
 
     public onEvent(event: string, sessionID: string): void {
         const sessionUsername = this.saveServer.getProfile(sessionID).info.username;
-        const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${this.sptVersion}/${sessionUsername}-${sessionID}/`;
+        const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${sessionUsername}-${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) {
             this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
