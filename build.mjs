@@ -32,9 +32,9 @@
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import archiver from "archiver";
 import fs from "fs-extra";
 import ignore from "ignore";
-import archiver from "archiver";
 import winston from "winston";
 
 // Get the command line arguments to determine whether to use verbose logging.
@@ -61,9 +61,9 @@ const logger = winston.createLogger({
     },
     format: winston.format.combine(
         winston.format.colorize(),
-        winston.format.printf(info => {
+        winston.format.printf((info) => {
             return `${info.level}: ${info.message}`;
-        })
+        }),
     ),
     transports: [
         new winston.transports.Console({
@@ -221,16 +221,15 @@ async function loadPackageJson(currentDir) {
  * @returns {string} A string representing the constructed project name.
  */
 function createProjectName(packageJson) {
-    // Remove any non-alphanumeric characters from the author and name.
-    const author = packageJson.author.replace(/\W/g, "");
+    // Remove any non-alphanumeric characters from the name.
     const name = packageJson.name.replace(/\W/g, "");
 
     // Ensure the name is lowercase, as per the package.json specification.
-    return `${author}-${name}`.toLowerCase();
+    return `${name}`.toLowerCase();
 }
 
 /**
- * Defines the location of the distribution directory where the final mod package will be stored and deletes any 
+ * Defines the location of the distribution directory where the final mod package will be stored and deletes any
  * existing distribution directory to ensure a clean slate for the build process.
  *
  * @param {string} currentDirectory - The absolute path of the current working directory.
@@ -312,7 +311,7 @@ async function copyFiles(srcDir, destDir, ignoreHandler) {
                 copyOperations.push(
                     fs.copy(srcPath, destPath).then(() => {
                         logger.log("info", `Copied: /${path.relative(process.cwd(), srcPath)}`);
-                    })
+                    }),
                 );
             }
         }
@@ -345,14 +344,14 @@ async function createZipFile(directoryToZip, zipFilePath, containerDirName) {
         });
 
         // Set up an event listener for the 'close' event to resolve the promise when the archiver has finalized.
-        output.on("close", function () {
+        output.on("close", () => {
             logger.log("info", "Archiver has finalized. The output and the file descriptor have closed.");
             resolve();
         });
 
         // Set up an event listener for the 'warning' event to handle warnings appropriately, logging them or rejecting
         // the promise based on the error code.
-        archive.on("warning", function (err) {
+        archive.on("warning", (err) => {
             if (err.code === "ENOENT") {
                 logger.log("warn", `Archiver issued a warning: ${err.code} - ${err.message}`);
             } else {
@@ -361,7 +360,7 @@ async function createZipFile(directoryToZip, zipFilePath, containerDirName) {
         });
 
         // Set up an event listener for the 'error' event to reject the promise if any error occurs during archiving.
-        archive.on("error", function (err) {
+        archive.on("error", (err) => {
             reject(err);
         });
 

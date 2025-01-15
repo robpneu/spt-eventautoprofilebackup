@@ -3,7 +3,7 @@
     "version": "1.7.0",
     "main": "src/mod.js",
     "license": "CC BY-NC-SA 4.0",
-    "author": "Lua, FriedEngineer",
+    "author": "Lua, Reis, Props, FriedEngineer",
     "sptVersion": "3.10.*",
     "loadBefore": [],
     "loadAfter": [],
