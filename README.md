@@ -1,41 +1,49 @@
 # Welcome to Lua-AutoProfileBackup
-No more worries to backup your profile. A minor update to Lua's mod so all options work.
+No more worries to backup your profile. A continuation of Lua's and other modder's work.
 
 ## **Configuration**
-`%SPT%/user\mods\lua-autoprofilebackup-%version%\config\config.jsonc`
+`user\mods\autoprofilebackup\config\config.jsonc`
 
-Auto Profile Backup (Configurable):
- - On Game Start
- - On Raid Start
- - On Raid End
- - On Logout
+For a bit of background, the "events" are triggered when the server receives a call to the specified route. You can enable, disable and/or rename any of the events. Do not change the Route unless you know what you're doing. (You should only have to rename them if SPT changes them in a future version).
 
-```JSONC
-"AutoBackup":
-	{
-		"OnGameStart": true,
-		"OnRaidStart": true,
-		"OnRaidEnd": true,
-		"OnLogout": true
-	}
-```
+Besides that, the default config file includes helpful comments so I'll just point you to that: [config.jsonc](./config/config.jsonc)
 
-Maximum Backup Per Profile (Configurable):
+Each event is configurable in the following ways
+- Enable or disable
+- The name of the event (which is used in the file name)
+- The route to which the mod listens.
+
+### Advanced
+
+By moving the routes into the config file I have also made it much easier to add additional events. If you are so inclined, here's how I would recommend adding a new event
 
 ```JSONC
-"MaximumBackupDeleteLog": true,
-"MaximumBackupPerProfile": 50,
+​// Which events should trigger a backup.
+"AutoBackupEvents": [
+    { "Enabled": true, "Name": "OnGameStart", "Route": "/client/game/start" },
+    { "Enabled": true, "Name": "OnRaidStart", "Route": "/client/match/local/start" },
+    { "Enabled": true, "Name": "OnRaidEnd", "Route": "/client/match/local/end" },
+    { "Enabled": true, "Name": "OnLogout", "Route": "/client/game/logout" },
+    { "Enabled": true, "Name": "AnotherEvent", "Route": "/this/is/another/route" }
+]
 ```
+
+A few words of caution:
+1. I recommend that you do not add a route that occurs frequently.
+	- I don't really know the limit of how often often a backup be made before causing server performance issues from it constantly creating and probably deleting backup files.
+	- I imagine that a significant number of profile backups of the same event would make it difficult to find the exact one you want.
+2. ​I do not know if all routes will actually work. I have not tested any beyond the ones included by default so any you add are at your own risk
+	- If you have an idea for an event to that you think should be included by default but you don't want to venture into this on your own, please leave a comment on the hub page or open a Github issue [here](https://github.com/robpneu/spt-autoprofilebackup/issues) and I'll see what I can do.​
 
 ## **Backup files**
- - Auto-Backup path: `%SPT%/user/profiles/Autobackup/`
- - Backup file format: `%Event%-%ISO Timeformat%.json`
-   - Example: `onRaidStart-2022-08-30T161622490Z.json`
+ - Auto-Backup path: `user/profiles/Autobackup/profileUsername-profileID`
+ - Backup file format: `year-month-day_hour-minute-second_​event.json`
+   - Example: `2025-01-14_21-14-49_OnGameStart.json`
 
 ## **Restore**
  - Prevent profile's filename error by auto rename
  - You don't have to rename the backup file
- - select backup file then drop into /user/profiles folder
+ - select backup file then move or copy it into the `/user/profiles` folder, right next to the existing profile(s)
 
 # Build & Environment
 This project is based of the [SPT Mod Examples](https://dev.sp-tarkov.com/chomp/ModExamples) repository.

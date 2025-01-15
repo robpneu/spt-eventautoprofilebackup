@@ -7,7 +7,7 @@
 
     // Write logs when backups are deleted and the maximum number of backups per profile.
     "MaximumBackupDeleteLog": true,
-    "MaximumBackupPerProfile": 10,
+    "MaximumBackupPerProfile": 50,
 
     // Which events should trigger a backup.
     "AutoBackupEvents": [
