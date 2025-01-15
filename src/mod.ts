@@ -4,11 +4,10 @@ import type { IPostDBLoadMod } from "@spt/models/external/IPostDBLoadMod";
 import type { IPostSptLoadMod } from "@spt/models/external/IPostSptLoadMod";
 import type { IPreSptLoadMod } from "@spt/models/external/IPreSptLoadMod";
 import { ICoreConfig } from "@spt/models/spt/config/ICoreConfig";
-import { LogBackgroundColor } from "@spt/models/spt/logging/LogBackgroundColor";
-import { LogTextColor } from "@spt/models/spt/logging/LogTextColor";
 import type { ILogger } from "@spt/models/spt/utils/ILogger";
 import type { ConfigServer } from "@spt/servers/ConfigServer";
 import type { SaveServer } from "@spt/servers/SaveServer";
+import { BackupService } from "@spt/services/BackupService";
 import type { StaticRouterModService } from "@spt/services/mod/staticRouter/StaticRouterModService";
 import type { JsonUtil } from "@spt/utils/JsonUtil";
 import type { VFS } from "@spt/utils/VFS";
@@ -31,6 +30,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     protected configServer: ConfigServer;
     protected jsonUtil: JsonUtil;
     protected saveServer: SaveServer;
+    protected backupService: BackupService;
 
     public preSptLoad(container: DependencyContainer): void {
         const staticRouterModService: StaticRouterModService =
@@ -89,8 +89,9 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.configServer = container.resolve<ConfigServer>("ConfigServer");
         this.jsonUtil = container.resolve<JsonUtil>("JsonUtil");
         this.saveServer = container.resolve<SaveServer>("SaveServer");
+        this.backupService = container.resolve<BackupService>("BackupService");
 
-        // Check all off the loaded profiles for any mismatches, which indicates an attempted to restore from backup
+        // Check all off the loaded profiles for any mismatches, which indicates an attempt to restore from backup
         for (const profileKey in this.saveServer.getProfiles()) {
             const sessionID = this.saveServer.getProfile(profileKey).info.id;
             if (sessionID !== profileKey) {
@@ -144,7 +145,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             }
         }
 
-        const backupFileName = `${new Date().toISOString().replace(/[:.]/g, "")}-${event}.json`;
+        const backupFileName = `${this.backupService.generateBackupDate()}_${event}.json`;
 
         const jsonProfile = this.jsonUtil.serialize(
             this.saveServer.getProfile(sessionID),
