@@ -88,21 +88,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.saveServer = container.resolve<SaveServer>("SaveServer");
         this.backupService = container.resolve<BackupService>("BackupService");
 
-        // Check all off the loaded profiles for any mismatches, which indicates an attempt to restore from backup
-        for (const profileKey in this.saveServer.getProfiles()) {
-            const sessionID = this.saveServer.getProfile(profileKey).info.id;
-            if (sessionID !== profileKey) {
-                this.saveServer.deleteProfileById(profileKey);
-                fs.rename(
-                    `${this.saveServer.profileFilepath}/${profileKey}.json`,
-                    `${this.saveServer.profileFilepath}/${sessionID}.json`,
-                    () => {
-                        this.saveServer.loadProfile(sessionID);
-                    },
-                );
-                this.logger.info(`[${this.modName}] Profile "${profileKey}.json" => "${sessionID}.json" name fixed`);
-            }
-        }
+        this.autoRestoreProfiles();
     }
 
     public onEvent(event: string, sessionID: string): void {
@@ -155,6 +141,24 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             this.logger.success(
                 `[${this.modName}] ${sessionUsername}-${sessionID}: New backup file "${backupFileName}" saved`,
             );
+        }
+    }
+
+    public autoRestoreProfiles(): void {
+        // Check all off the loaded profiles for any mismatches, which indicates an attempt to restore from backup
+        for (const profileKey in this.saveServer.getProfiles()) {
+            const sessionID = this.saveServer.getProfile(profileKey).info.id;
+            if (sessionID !== profileKey) {
+                this.saveServer.deleteProfileById(profileKey);
+                fs.rename(
+                    `${this.saveServer.profileFilepath}/${profileKey}.json`,
+                    `${this.saveServer.profileFilepath}/${sessionID}.json`,
+                    () => {
+                        this.saveServer.loadProfile(sessionID);
+                    },
+                );
+                this.logger.info(`[${this.modName}] Profile "${profileKey}.json" => "${sessionID}.json" name fixed`);
+            }
         }
     }
 }
