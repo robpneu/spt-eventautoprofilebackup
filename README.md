@@ -1,5 +1,7 @@
-# Welcome to EventAutoProfileBackup, formerly Lua-AutoProfileBackup
-No more worries to backup your profile. A continuation of Lua's and other modder's work.
+# Welcome to the EventAutoProfileBackup SPT Mod
+No more worries to backup your profile.
+
+A continuation of Lua's and other modder's work. Formerly Lua-AutoProfileBackup.
 
 ## **Backup files**
 - Auto-Backup path: `user/profiles/EventAutoBackup/backups/profileUsername-profileID`
