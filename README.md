@@ -1,8 +1,21 @@
-# Welcome to Lua-AutoProfileBackup
+# Welcome to EventAutoProfileBackup, formerly Lua-AutoProfileBackup
 No more worries to backup your profile. A continuation of Lua's and other modder's work.
 
+## **Backup files**
+- Auto-Backup path: `user/profiles/EventAutoBackup/backups/profileUsername-profileID`
+- Backup file format: `year-month-day_hour-minute-second_​event.json`
+  - Example: `2025-01-14_21-14-49_OnGameStart.json`
+
+## **Restore**
+Automatically restores profile backups when requsted without requiring that the user rename the file
+
+Process:
+- Move or copy the backup file you wish to restore to `user/profiles/EventAutoBackup/ProfilesToRestore/`.
+- When the restore is complete the file will be moved to `user/profiles/EventAutoBackup/RestoredProfiles/`.
+- `user/profiles/EventAutoBackup/RestoredProfiles/` will retain the number of files set in the config.jsonc (`MaximumRestoredBackupFiles`).
+
 ## **Configuration**
-`user\mods\autoprofilebackup\config\config.jsonc`
+`user/mods/eventautoprofilebackup/config/config.jsonc`
 
 For a bit of background, the "events" are triggered when the server receives a call to the specified route. You can enable, disable and/or rename any of the events. Do not change the Route unless you know what you're doing. (You should only have to rename them if SPT changes them in a future version).
 
@@ -33,17 +46,7 @@ A few words of caution:
 	- I don't really know the limit of how often often a backup be made before causing server performance issues from it constantly creating and probably deleting backup files.
 	- I imagine that a significant number of profile backups of the same event would make it difficult to find the exact one you want.
 2. ​I do not know if all routes will actually work. I have not tested any beyond the ones included by default so any you add are at your own risk
-	- If you have an idea for an event to that you think should be included by default but you don't want to venture into this on your own, please leave a comment on the hub page or open a Github issue [here](https://github.com/robpneu/spt-autoprofilebackup/issues) and I'll see what I can do.​
-
-## **Backup files**
- - Auto-Backup path: `user/profiles/Autobackup/profileUsername-profileID`
- - Backup file format: `year-month-day_hour-minute-second_​event.json`
-   - Example: `2025-01-14_21-14-49_OnGameStart.json`
-
-## **Restore**
- - Prevent profile's filename error by auto rename
- - You don't have to rename the backup file
- - select backup file then move or copy it into the `/user/profiles` folder, right next to the existing profile(s)
+	- If you have an idea for an event to that you think should be included by default but you don't want to venture into this on your own, please leave a comment on the hub page or open a Github issue [here](https://github.com/robpneu/spt-eventautoprofilebackup/issues) and I'll see what I can do.​
 
 # Build & Environment
 This project is based of the [SPT Mod Examples](https://dev.sp-tarkov.com/chomp/ModExamples) repository.

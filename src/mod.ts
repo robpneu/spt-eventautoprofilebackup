@@ -90,14 +90,14 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.saveServer = container.resolve<SaveServer>("SaveServer");
         this.backupService = container.resolve<BackupService>("BackupService");
 
-        this.backupPath = `${this.saveServer.profileFilepath}AutoBackup/`;
+        this.backupPath = `${this.saveServer.profileFilepath}EventAutoBackups/`;
 
         this.restoreRequestedProfiles();
     }
 
     public onEvent(event: string, sessionID: string): void {
         const sessionUsername = this.saveServer.getProfile(sessionID).info.username;
-        const sessionPath = `${this.backupPath}${sessionUsername}-${sessionID}/`;
+        const sessionPath = `${this.backupPath}backups/${sessionUsername}-${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) {
             this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
