@@ -9,6 +9,9 @@
     "MaximumBackupDeleteLog": true,
     "MaximumBackupPerProfile": 50,
 
+    // Maximum number of restored profile backup files in user/profiles/AutoBackup/RestoredProfiles to keep.
+    "MaximumRestoredBackupFiles": 10,
+
     // Which events should trigger a backup.
     "AutoBackupEvents": [
         { "Enabled": true, "Name": "OnGameStart", "Route": "/client/game/start" },

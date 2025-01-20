@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { ISptProfile } from "@spt/models/eft/profile/ISptProfile";
 import { ConfigTypes } from "@spt/models/enums/ConfigTypes";
 import type { IPostDBLoadMod } from "@spt/models/external/IPostDBLoadMod";
 import type { IPostSptLoadMod } from "@spt/models/external/IPostSptLoadMod";
@@ -22,6 +23,7 @@ import pkg from "../package.json";
 
 export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     readonly modName = `${pkg.name}`;
+    private backupPath;
     private modConfig: ModConfig;
     private logger: ILogger;
     private vfs: VFS;
@@ -88,12 +90,14 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.saveServer = container.resolve<SaveServer>("SaveServer");
         this.backupService = container.resolve<BackupService>("BackupService");
 
-        this.autoRestoreProfiles();
+        this.backupPath = `${this.saveServer.profileFilepath}AutoBackup/`;
+
+        this.restoreRequestedProfiles();
     }
 
     public onEvent(event: string, sessionID: string): void {
         const sessionUsername = this.saveServer.getProfile(sessionID).info.username;
-        const sessionPath = `${this.saveServer.profileFilepath}/AutoBackup/${sessionUsername}-${sessionID}/`;
+        const sessionPath = `${this.backupPath}${sessionUsername}-${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) {
             this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
@@ -101,30 +105,12 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         }
 
         if (this.modConfig?.MaximumBackupPerProfile >= 0) {
-            const profileList = this.vfs
-                .getFilesOfType(sessionPath, "json")
-                .sort((a, b) => fs.statSync(a).ctimeMs - fs.statSync(b).ctimeMs);
-            let delCount = 0;
-            let fileName = "";
-
-            while (profileList.length && profileList.length >= this.modConfig.MaximumBackupPerProfile) {
-                const lastProfile = profileList[0];
-                fileName = lastProfile.split("\\").pop();
-                this.vfs.removeFile(lastProfile);
-                profileList.splice(0, 1);
-                delCount++;
-            }
+            const delCount = this.cleanUpFolder(sessionPath, this.modConfig.MaximumBackupPerProfile);
 
             if (this.modConfig?.MaximumBackupDeleteLog) {
-                if (delCount === 1) {
-                    this.logger.warning(
-                        `[${this.modName}] ${sessionUsername}-${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Backup file "${fileName}" deleted`,
-                    );
-                } else if (delCount > 1) {
-                    this.logger.warning(
-                        `[${this.modName}] @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}), Total "${delCount}" backup files deleted`,
-                    );
-                }
+                this.logger.warning(
+                    `[${this.modName}] @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}). "${delCount}" backup file(s) deleted`,
+                );
             }
         }
 
@@ -144,22 +130,74 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         }
     }
 
-    public autoRestoreProfiles(): void {
-        // Check all off the loaded profiles for any mismatches, which indicates an attempt to restore from backup
-        for (const profileKey in this.saveServer.getProfiles()) {
-            const sessionID = this.saveServer.getProfile(profileKey).info.id;
-            if (sessionID !== profileKey) {
-                this.saveServer.deleteProfileById(profileKey);
-                fs.rename(
-                    `${this.saveServer.profileFilepath}/${profileKey}.json`,
-                    `${this.saveServer.profileFilepath}/${sessionID}.json`,
-                    () => {
-                        this.saveServer.loadProfile(sessionID);
-                    },
-                );
-                this.logger.info(`[${this.modName}] Profile "${profileKey}.json" => "${sessionID}.json" name fixed`);
-            }
+    private restoreRequestedProfiles(): void {
+        const profileFilesToRestorePath = `${this.backupPath}ProfilesToRestore/`;
+        const restoredProfilePath = `${this.backupPath}RestoredProfiles/`;
+
+        // Create the ToRestore and Restored folders if they don't exist
+        if (!this.vfs.exists(profileFilesToRestorePath)) {
+            this.logger.success(`[${this.modName}] "${profileFilesToRestorePath}" has been created`);
+            this.vfs.createDir(profileFilesToRestorePath);
         }
+
+        if (!this.vfs.exists(restoredProfilePath)) {
+            this.logger.success(`[${this.modName}] "${restoredProfilePath}" has been created`);
+            this.vfs.createDir(restoredProfilePath);
+        }
+
+        // Get all the json files in the "ProfilesToRestore" folder and iterate over them
+        const profileFilesToRestore = this.vfs
+            .getFiles(profileFilesToRestorePath)
+            .filter((item) => this.vfs.getFileExtension(item) === "json");
+
+        for (const profileFile of profileFilesToRestore) {
+            const profileFilepath = `${profileFilesToRestorePath}${profileFile}`;
+            // Manually read the profile json to pull the info out
+            this.logger.info(`[${this.modName}] Restoring ${profileFile}`);
+            const profile: ISptProfile = this.jsonUtil.deserialize(this.vfs.readFile(profileFilepath));
+            const profileId = profile.info.id;
+
+            // If a profile with the same id exists in the SaveServer
+            if (this.saveServer.profileExists(profileId)) {
+                // Delete the profile from the SaveServer memory and from the file system
+                this.saveServer.deleteProfileById(profileId);
+                this.saveServer.removeProfile(profileId);
+            }
+
+            // Add full profile in memory by key (info.id) and have the save server save it to the user/profiles json
+            this.saveServer.addProfile(profile);
+            this.saveServer.saveProfile(profileId);
+            this.logger.info(`[${this.modName}] Restored ${profileFile} to ${profileId} (${profile.info.username})`);
+
+            // Move restored file to the "RestoredProfiles" folder
+            this.vfs.copyFile(profileFilepath, `${restoredProfilePath}${profileFile}`);
+            this.vfs.removeFile(profileFilepath);
+        }
+
+        this.cleanUpFolder(profileFilesToRestorePath, this.modConfig?.MaximumRestoredBackupFiles);
+    }
+
+    private cleanUpFolder(folderPath: string, maxFiles: number): number {
+        const files = this.vfs.getFiles(folderPath);
+        for (const file of files) {
+            this.vfs.removeFile(file);
+        }
+
+        // Get all the json files in the folder and sort them by creation time
+        const fileList = this.vfs
+            .getFilesOfType(folderPath, "json")
+            .sort((a, b) => fs.statSync(a).ctimeMs - fs.statSync(b).ctimeMs);
+        let delCount = 0;
+
+        // If the number of files in the folder is greater than the maxFiles, delete the oldest files until the count is less than maxFiles
+        while (fileList.length && fileList.length >= maxFiles) {
+            const lastFile = fileList[0];
+            this.vfs.removeFile(lastFile);
+            fileList.splice(0, 1);
+            delCount++;
+        }
+
+        return delCount;
     }
 }
 
