@@ -90,13 +90,22 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         this.saveServer = container.resolve<SaveServer>("SaveServer");
         this.backupService = container.resolve<BackupService>("BackupService");
 
-        this.backupPath = `${this.saveServer.profileFilepath}EventAutoBackups/`;
+        this.backupPath = `${this.saveServer.profileFilepath}EventAutoBackup/`;
 
         this.restoreRequestedProfiles();
     }
 
     public onEvent(event: string, sessionID: string): void {
         const sessionUsername = this.saveServer.getProfile(sessionID).info.username;
+
+        // If the profile username is of a dedicated client, don't create a backup
+        if (sessionUsername.startsWith("dedicated_")) {
+            this.logger.debug(
+                `[${this.modName}] ${sessionID} (${sessionUsername}) is a dedicated client. No backup created`,
+            );
+            return;
+        }
+
         const sessionPath = `${this.backupPath}backups/${sessionUsername}-${sessionID}/`;
 
         if (!this.vfs.exists(sessionPath)) {
@@ -107,7 +116,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         if (this.modConfig?.MaximumBackupPerProfile >= 0) {
             const delCount = this.cleanUpFolder(sessionPath, this.modConfig.MaximumBackupPerProfile);
 
-            if (this.modConfig?.MaximumBackupDeleteLog) {
+            if (this.modConfig?.MaximumBackupDeleteLog && delCount > 0) {
                 this.logger.warning(
                     `[${this.modName}] @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}). "${delCount}" backup file(s) deleted`,
                 );
@@ -125,7 +134,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
 
         if (this.modConfig?.BackupSavedLog) {
             this.logger.success(
-                `[${this.modName}] ${sessionUsername}-${sessionID}: New backup file "${backupFileName}" saved`,
+                `[${this.modName}] ${sessionID} (${sessionUsername}): New backup file "${backupFileName}" saved`,
             );
         }
     }
@@ -156,6 +165,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             this.logger.info(`[${this.modName}] Restoring ${profileFile}`);
             const profile: ISptProfile = this.jsonUtil.deserialize(this.vfs.readFile(profileFilepath));
             const profileId = profile.info.id;
+            const profileUsername = profile.info.username;
 
             // If a profile with the same id exists in the SaveServer
             if (this.saveServer.profileExists(profileId)) {
@@ -167,7 +177,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             // Add full profile in memory by key (info.id) and have the save server save it to the user/profiles json
             this.saveServer.addProfile(profile);
             this.saveServer.saveProfile(profileId);
-            this.logger.info(`[${this.modName}] Restored ${profileFile} to ${profileId} (${profile.info.username})`);
+            this.logger.info(`[${this.modName}] Restored ${profileFile} to ${profileId} (${profileUsername})`);
 
             // Move restored file to the "RestoredProfiles" folder
             this.vfs.copyFile(profileFilepath, `${restoredProfilePath}${profileFile}`);
@@ -178,11 +188,6 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     }
 
     private cleanUpFolder(folderPath: string, maxFiles: number): number {
-        const files = this.vfs.getFiles(folderPath);
-        for (const file of files) {
-            this.vfs.removeFile(file);
-        }
-
         // Get all the json files in the folder and sort them by creation time
         const fileList = this.vfs
             .getFilesOfType(folderPath, "json")
