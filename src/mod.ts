@@ -118,7 +118,7 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
 
             if (this.modConfig?.MaximumBackupDeleteLog && delCount > 0) {
                 this.logger.warning(
-                    `[${this.modName}] @ ${sessionID}: Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}). "${delCount}" backup file(s) deleted`,
+                    `[${this.modName}] ${sessionID} (${sessionUsername}): Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}). ${delCount} backup file(s) deleted`,
                 );
             }
         }
@@ -184,7 +184,15 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
             this.vfs.removeFile(profileFilepath);
         }
 
-        this.cleanUpFolder(profileFilesToRestorePath, this.modConfig?.MaximumRestoredBackupFiles);
+        if (this.modConfig?.MaximumRestoredFiles >= 0) {
+            const delCount = this.cleanUpFolder(profileFilesToRestorePath, this.modConfig?.MaximumRestoredFiles);
+
+            if (this.modConfig?.MaximumBackupDeleteLog && delCount > 0) {
+                this.logger.warning(
+                    `[${this.modName}] Maximum restored backups reached (${this.modConfig.MaximumRestoredFiles}). ${delCount} backup file(s) deleted`,
+                );
+            }
+        }
     }
 
     private cleanUpFolder(folderPath: string, maxFiles: number): number {

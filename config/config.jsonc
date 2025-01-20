@@ -1,18 +1,19 @@
 {
-    // Set to false if you do not want the backup profile to run at all.
+    // Set to false if you want to disable this mod entirely
     "Enabled": true,
 
     // Write logs when a backup is saved
     "BackupSavedLog": true,
 
-    // Write logs when backups are deleted and the maximum number of backups per profile.
-    "MaximumBackupDeleteLog": true,
+    // Write logs when backups are deleted and the maximum number of backups per profile
+    "MaximumBackupDeleteLog": false,
     "MaximumBackupPerProfile": 50,
 
-    // Maximum number of restored profile backup files in user/profiles/AutoBackup/RestoredProfiles to keep.
-    "MaximumRestoredBackupFiles": 10,
+    // Write logs when restored backups are deleted and the maximum number of restored backups
+    "MaximumRestoredDeleteLog": false,
+    "MaximumRestoredFiles": 10,
 
-    // Which events should trigger a backup.
+    // Which events should trigger a backup
     "AutoBackupEvents": [
         { "Enabled": true, "Name": "OnGameStart", "Route": "/client/game/start" },
         { "Enabled": true, "Name": "OnRaidStart", "Route": "/client/match/local/start" },

@@ -3,7 +3,8 @@ export interface ModConfig {
     BackupSavedLog: boolean;
     MaximumBackupDeleteLog: boolean;
     MaximumBackupPerProfile: number;
-    MaximumRestoredBackupFiles: number;
+    MaximumRestoredDeleteLog: boolean;
+    MaximumRestoredFiles: number;
     AutoBackupEvents: AutoBackupEvent[];
 }
 
