@@ -108,23 +108,15 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
 
         const sessionPath = `${this.backupPath}backups/${sessionUsername}-${sessionID}/`;
 
+        // Create the specific profile's backup folder if it doesn't exist
         if (!this.vfs.exists(sessionPath)) {
             this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
             this.vfs.createDir(sessionPath);
         }
 
-        if (this.modConfig?.MaximumBackupPerProfile >= 0) {
-            const delCount = this.cleanUpFolder(sessionPath, this.modConfig.MaximumBackupPerProfile);
-
-            if (this.modConfig?.MaximumBackupDeleteLog && delCount > 0) {
-                this.logger.warning(
-                    `[${this.modName}] ${sessionID} (${sessionUsername}): Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}). ${delCount} backup file(s) deleted`,
-                );
-            }
-        }
-
         const backupFileName = `${this.backupService.generateBackupDate()}_${event}.json`;
 
+        // Get the profile from the SaveServer and write it to the backup folder
         const jsonProfile = this.jsonUtil.serialize(
             this.saveServer.getProfile(sessionID),
             !this.configServer.getConfig<ICoreConfig>(ConfigTypes.CORE).features.compressProfile,
@@ -135,6 +127,21 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         if (this.modConfig?.BackupSavedLog) {
             this.logger.success(
                 `[${this.modName}] ${sessionID} (${sessionUsername}): New backup file "${backupFileName}" saved`,
+            );
+        }
+
+        // Clean up the backup folder to have a maximum number of files
+        if (this.modConfig?.MaximumBackupPerProfile >= 0) {
+            const delCount = this.cleanUpFolder(sessionPath, this.modConfig.MaximumBackupPerProfile);
+
+            if (this.modConfig?.MaximumBackupDeleteLog && delCount > 0) {
+                this.logger.success(
+                    `[${this.modName}] ${sessionID} (${sessionUsername}): Maximum backup reached (${this.modConfig.MaximumBackupPerProfile}). ${delCount} backup file(s) deleted`,
+                );
+            }
+        } else {
+            this.logger.warning(
+                `[${this.modName}] "MaximumBackupPerProfile" is set to 0. This may cause the folder to grow indefinitely and is not recommended.`,
             );
         }
     }
@@ -161,8 +168,9 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
 
         for (const profileFile of profileFilesToRestore) {
             const profileFilepath = `${profileFilesToRestorePath}${profileFile}`;
+            this.logger.debug(`[${this.modName}] Restoring ${profileFile}`);
+
             // Manually read the profile json to pull the info out
-            this.logger.info(`[${this.modName}] Restoring ${profileFile}`);
             const profile: ISptProfile = this.jsonUtil.deserialize(this.vfs.readFile(profileFilepath));
             const profileId = profile.info.id;
             const profileUsername = profile.info.username;
@@ -174,36 +182,46 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
                 this.saveServer.removeProfile(profileId);
             }
 
-            // Add full profile in memory by key (info.id) and have the save server save it to the user/profiles json
+            // Add the profile to the SaveServer memory and then have the save server save it to the user/profiles json
             this.saveServer.addProfile(profile);
             this.saveServer.saveProfile(profileId);
             this.logger.info(`[${this.modName}] Restored ${profileFile} to ${profileId} (${profileUsername})`);
 
-            // Move restored file to the "RestoredProfiles" folder
+            // Move the restored file to the "RestoredProfiles" folder
             this.vfs.copyFile(profileFilepath, `${restoredProfilePath}${profileFile}`);
             this.vfs.removeFile(profileFilepath);
         }
 
+        // Clean up the "RestoredProfiles" folder to have a maximum number of files
         if (this.modConfig?.MaximumRestoredFiles >= 0) {
-            const delCount = this.cleanUpFolder(profileFilesToRestorePath, this.modConfig?.MaximumRestoredFiles);
+            const delCount = this.cleanUpFolder(restoredProfilePath, this.modConfig.MaximumRestoredFiles);
 
-            if (this.modConfig?.MaximumBackupDeleteLog && delCount > 0) {
-                this.logger.warning(
+            if (this.modConfig?.MaximumRestoredDeleteLog && delCount > 0) {
+                this.logger.success(
                     `[${this.modName}] Maximum restored backups reached (${this.modConfig.MaximumRestoredFiles}). ${delCount} backup file(s) deleted`,
                 );
             }
+        } else {
+            this.logger.warning(
+                `[${this.modName}] "MaximumRestoredFiles" is set to 0. This may cause the folder to grow indefinitely and is not recommended.`,
+            );
         }
     }
 
     private cleanUpFolder(folderPath: string, maxFiles: number): number {
+        this.logger.debug(`[${this.modName}] Cleaning up folder ${folderPath} to have a maximum of ${maxFiles} files`);
+
         // Get all the json files in the folder and sort them by creation time
         const fileList = this.vfs
             .getFilesOfType(folderPath, "json")
             .sort((a, b) => fs.statSync(a).ctimeMs - fs.statSync(b).ctimeMs);
         let delCount = 0;
 
+        this.logger.debug(`[${this.modName}] Found ${fileList.length} files in the folder`);
+
         // If the number of files in the folder is greater than the maxFiles, delete the oldest files until the count is less than maxFiles
-        while (fileList.length && fileList.length >= maxFiles) {
+        while (fileList.length && fileList.length > maxFiles) {
+            this.logger.debug(`[${this.modName}] Deleting ${fileList[0]}`);
             const lastFile = fileList[0];
             this.vfs.removeFile(lastFile);
             fileList.splice(0, 1);
