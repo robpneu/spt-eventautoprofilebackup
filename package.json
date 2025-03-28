@@ -4,7 +4,7 @@
     "main": "src/mod.js",
     "license": "CC BY-NC-SA 4.0",
     "author": "Lua, Reis, Props, FriedEngineer",
-    "sptVersion": "3.10.*",
+    "sptVersion": "3.11.*",
     "loadBefore": [],
     "loadAfter": [],
     "incompatibilities": [],
@@ -21,7 +21,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "1.8.3",
-        "@types/node": "20.11",
+        "@types/node": "22.10.5",
         "@typescript-eslint/eslint-plugin": "7.2",
         "@typescript-eslint/parser": "7.2",
         "archiver": "^6.0",
@@ -29,7 +29,7 @@
         "fs-extra": "11.2",
         "ignore": "^5.2",
         "tsyringe": "4.8.0",
-        "typescript": "5.4",
-        "winston": "3.12"
+        "typescript": "5.7.3",
+        "winston": "3.17.0"
     }
 }
