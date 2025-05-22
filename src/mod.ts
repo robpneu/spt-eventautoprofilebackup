@@ -1,7 +1,6 @@
-import fs from "node:fs";
+import path from "node:path";
 import { ISptProfile } from "@spt/models/eft/profile/ISptProfile";
 import { ConfigTypes } from "@spt/models/enums/ConfigTypes";
-import type { IPostDBLoadMod } from "@spt/models/external/IPostDBLoadMod";
 import type { IPostSptLoadMod } from "@spt/models/external/IPostSptLoadMod";
 import type { IPreSptLoadMod } from "@spt/models/external/IPreSptLoadMod";
 import { ICoreConfig } from "@spt/models/spt/config/ICoreConfig";
@@ -10,23 +9,21 @@ import type { ConfigServer } from "@spt/servers/ConfigServer";
 import type { SaveServer } from "@spt/servers/SaveServer";
 import { BackupService } from "@spt/services/BackupService";
 import type { StaticRouterModService } from "@spt/services/mod/staticRouter/StaticRouterModService";
+import { FileSystemSync } from "@spt/utils/FileSystemSync";
 import type { JsonUtil } from "@spt/utils/JsonUtil";
-import type { VFS } from "@spt/utils/VFS";
 import type { DependencyContainer } from "tsyringe";
 import type { ModConfig } from "./configInterface";
 
 import { jsonc } from "jsonc";
 
-import path from "node:path";
-
 import pkg from "../package.json";
 
-export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
+export class Mod implements IPreSptLoadMod, IPostSptLoadMod {
     readonly modName = `${pkg.name}`;
-    private backupPath;
+    private backupPath: string;
     private modConfig: ModConfig;
     private logger: ILogger;
-    private vfs: VFS;
+    private fileSystem: FileSystemSync;
     protected configServer: ConfigServer;
     protected jsonUtil: JsonUtil;
     protected saveServer: SaveServer;
@@ -39,11 +36,11 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         // get logger
         this.logger = container.resolve<ILogger>("WinstonLogger");
 
-        // Get VFS to interact with the file system to read in configs and manage profile backup directories and files
-        this.vfs = container.resolve<VFS>("VFS");
+        // Get the file system instance
+        this.fileSystem = container.resolve<FileSystemSync>("FileSystemSync");
 
         // Read in the json c config content and parse it into json
-        this.modConfig = jsonc.parse(this.vfs.readFile(path.resolve(__dirname, "../config/config.jsonc")));
+        this.modConfig = jsonc.parse(this.fileSystem.read(path.resolve(__dirname, "../config/config.jsonc")));
 
         if (!this.modConfig.Enabled) {
             this.logger.warning(`[${this.modName}] Mod is disabled. Backups will not be made.`);
@@ -98,8 +95,8 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     public onEvent(event: string, sessionID: string): void {
         const sessionUsername = this.saveServer.getProfile(sessionID).info.username;
 
-        // If the profile username is of a dedicated client, don't create a backup
-        if (sessionUsername.startsWith("dedicated_")) {
+        // If the profile username is of a headless client, don't create a backup
+        if (sessionUsername.startsWith("headless_")) {
             this.logger.debug(
                 `[${this.modName}] ${sessionID} (${sessionUsername}) is a dedicated client. No backup created`,
             );
@@ -107,22 +104,16 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         }
 
         const sessionPath = `${this.backupPath}backups/${sessionUsername}-${sessionID}/`;
-
-        // Create the specific profile's backup folder if it doesn't exist
-        if (!this.vfs.exists(sessionPath)) {
-            this.logger.success(`[${this.modName}] "${sessionPath}" has been created`);
-            this.vfs.createDir(sessionPath);
-        }
-
         const backupFileName = `${this.backupService.generateBackupDate()}_${event}.json`;
 
-        // Get the profile from the SaveServer and write it to the backup folder
+        // Get the profile from the SaveServer and serialize it. Roughly copied from the SPT SaveServer.saveProfile method
         const jsonProfile = this.jsonUtil.serialize(
             this.saveServer.getProfile(sessionID),
             !this.configServer.getConfig<ICoreConfig>(ConfigTypes.CORE).features.compressProfile,
         );
 
-        this.vfs.writeFile(`${sessionPath}${backupFileName}`, jsonProfile);
+        // Write the profile to the backup folder. Creates the parent directory if it doesn't exist
+        this.fileSystem.write(`${sessionPath}${backupFileName}`, jsonProfile);
 
         if (this.modConfig?.BackupSavedLog) {
             this.logger.success(
@@ -150,46 +141,40 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
         const profileFilesToRestorePath = `${this.backupPath}ProfilesToRestore/`;
         const restoredProfilePath = `${this.backupPath}RestoredProfiles/`;
 
-        // Create the ToRestore and Restored folders if they don't exist
-        if (!this.vfs.exists(profileFilesToRestorePath)) {
-            this.logger.success(`[${this.modName}] "${profileFilesToRestorePath}" has been created`);
-            this.vfs.createDir(profileFilesToRestorePath);
-        }
+        // Roughly copied from the SPT SaveServer load and loadProfiles methods
 
-        if (!this.vfs.exists(restoredProfilePath)) {
-            this.logger.success(`[${this.modName}] "${restoredProfilePath}" has been created`);
-            this.vfs.createDir(restoredProfilePath);
-        }
+        // Ensure the ToRestore and Restored folders exist. (ensureDir creates the folder if it doesn't exist)
+        this.fileSystem.ensureDir(profileFilesToRestorePath);
+        this.fileSystem.ensureDir(restoredProfilePath);
 
-        // Get all the json files in the "ProfilesToRestore" folder and iterate over them
-        const profileFilesToRestore = this.vfs
-            .getFiles(profileFilesToRestorePath)
-            .filter((item) => this.vfs.getFileExtension(item) === "json");
+        // Get all the json files in the "ProfilesToRestore" folder
+        const profileFilesToRestore = this.fileSystem.getFiles(profileFilesToRestorePath, false, ["json"]);
 
+        // Iterate over the profile files to restore
         for (const profileFile of profileFilesToRestore) {
             const profileFilepath = `${profileFilesToRestorePath}${profileFile}`;
             this.logger.debug(`[${this.modName}] Restoring ${profileFile}`);
 
-            // Manually read the profile json to pull the info out
-            const profile: ISptProfile = this.jsonUtil.deserialize(this.vfs.readFile(profileFilepath));
+            // Manually read the profile json and pull some profile info out
+            const profile: ISptProfile = this.fileSystem.readJson(profileFilepath);
             const profileId = profile.info.id;
             const profileUsername = profile.info.username;
 
-            // If a profile with the same id exists in the SaveServer
+            // If a profile with the same id exists in the SaveServer, we need to delete it first
             if (this.saveServer.profileExists(profileId)) {
                 // Delete the profile from the SaveServer memory and from the file system
                 this.saveServer.deleteProfileById(profileId);
                 this.saveServer.removeProfile(profileId);
             }
 
-            // Add the profile to the SaveServer memory and then have the save server save it to the user/profiles json
+            // Add the profile to restore to the SaveServer memory
             this.saveServer.addProfile(profile);
+            // Tell the SaveServer to save the profile to the user/profiles folder
             this.saveServer.saveProfile(profileId);
             this.logger.info(`[${this.modName}] Restored ${profileFile} to ${profileId} (${profileUsername})`);
 
             // Move the restored file to the "RestoredProfiles" folder
-            this.vfs.copyFile(profileFilepath, `${restoredProfilePath}${profileFile}`);
-            this.vfs.removeFile(profileFilepath);
+            this.fileSystem.move(profileFilepath, `${restoredProfilePath}${profileFile}`);
         }
 
         // Clean up the "RestoredProfiles" folder to have a maximum number of files
@@ -211,19 +196,18 @@ export class Mod implements IPreSptLoadMod, IPostDBLoadMod, IPostSptLoadMod {
     private cleanUpFolder(folderPath: string, maxFiles: number): number {
         this.logger.debug(`[${this.modName}] Cleaning up folder ${folderPath} to have a maximum of ${maxFiles} files`);
 
-        // Get all the json files in the folder and sort them by creation time
-        const fileList = this.vfs
-            .getFilesOfType(folderPath, "json")
-            .sort((a, b) => fs.statSync(a).ctimeMs - fs.statSync(b).ctimeMs);
+        // Get all the json files in the folder and sort them by name, which begins with the datetime
+        const fileList = this.fileSystem.getFiles(folderPath, false, ["json"]).sort((a, b) => a.localeCompare(b));
+
         let delCount = 0;
 
         this.logger.debug(`[${this.modName}] Found ${fileList.length} files in the folder`);
 
         // If the number of files in the folder is greater than the maxFiles, delete the oldest files until the count is less than maxFiles
         while (fileList.length && fileList.length > maxFiles) {
-            this.logger.debug(`[${this.modName}] Deleting ${fileList[0]}`);
             const lastFile = fileList[0];
-            this.vfs.removeFile(lastFile);
+            this.logger.debug(`[${this.modName}] Deleting ${folderPath}${lastFile}`);
+            this.fileSystem.remove(`${folderPath}${lastFile}`);
             fileList.splice(0, 1);
             delCount++;
         }

@@ -7,7 +7,7 @@
 
     // Write logs when backups are deleted and the maximum number of backups per profile
     "MaximumBackupDeleteLog": false,
-    "MaximumBackupPerProfile": 50,
+    "MaximumBackupPerProfile": 20,
 
     // Write logs when restored backups are deleted and the maximum number of restored backups
     "MaximumRestoredDeleteLog": false,
